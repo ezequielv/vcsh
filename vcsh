@@ -64,6 +64,84 @@ source_all() {
 	esac;
 }
 
+# prev: v1: unuse() {
+# prev: v1: 	while [ $# -gt 0 ] ; do
+# prev: v1: 		case "$1" in
+# prev: v1: 			'clear-nested' )
+# prev: v1: 				unset VCSH_COMMAND ;;
+# prev: v1:
+# prev: v1: 			* )
+# prev: v1: 				fatal "unuse(): unrecognized arg '$1'" ;;
+# prev: v1: 		esac
+# prev: v1: 		shift
+# prev: v1: 	done
+# prev: v1: 	unset VCSH_REPO_NAME VCSH_DIRECTORY GIT_DIR
+# prev: v1: }
+
+unuse() {
+	unset l_unuse_types
+
+	while [ $# -gt 0 ] ; do
+		case "$1" in
+			'n' | 'nested' )
+				l_unuse_types="${l_unuse_types}:n:" ;;
+			'd' | 'dirs' )
+				l_unuse_types="${l_unuse_types}:d:" ;;
+			'r' | 'repo' )
+				l_unuse_types="${l_unuse_types}:r:" ;;
+			* )
+				fatal "unuse(): unrecognized arg '$1'" ;;
+		esac
+		shift
+	done
+	[ -n "${l_unuse_types}" ] || fatal "unuse(): syntax: unuse [TYPES...]"
+
+	# prev: v2: for l_unuse_varname in \
+	# prev: v2: 	VCSH_REPO_NAME \
+	# prev: v2: 	VCSH_DIRECTORY \
+	# prev: v2: 	GIT_DIR \
+	# prev: v2: 	VCSH_COMMAND \
+	# prev: v2: 	# end
+	# prev: v2: do
+	# prev: v2: 	case "${l_unuse_varname}:${l_unuse_types}:" in
+	# prev: v2: 		VCSH_REPO_NAME:*:[ndr]:* | \
+	# prev: v2: 		VCSH_DIRECTORY:*:[ndr]:* | \
+	# prev: v2: 		GIT_DIR:*:[ndr]:* | \
+	# prev: v2: 		VCSH_COMMAND:*:[n]:* | \
+	# prev: v2: 		end-of-list )
+	# prev: v2: 			unset $v ;;
+	# prev: v2: 	esac
+	# prev: v2: done
+
+	# example:
+	#  $ ( dash -c 'pat="*:hello:*:[yYabc]:*" && echo "pattern: \"$pat$\"" && for t in ":hello:1:y:yes" ":hello:2:x:no" ; do case "$t" in $pat ) echo "\"$t\" matched" ;; * ) echo "\"$t\" did not match" ;; esac ; done' ) ; echo "rc: $?"
+	#  pattern: "*:hello:*:[yYabc]:*$"
+	#  ":hello:1:y:yes" matched
+	#  ":hello:2:x:no" did not match
+	#  rc: 0
+	for l_unuse_tuple in \
+		"VCSH_REPO_NAME:*:[nr]:*" \
+		"VCSH_DIRECTORY:*:[ndr]:*" \
+		"GIT_DIR:*:[ndr]:*" \
+		"VCSH_COMMAND:*:[n]:*" \
+		# end
+	do
+		l_unuse_varname="${l_unuse_tuple%%:*}"
+		case "${l_unuse_varname}:${l_unuse_types}:" in
+			${l_unuse_tuple} ) unset "${l_unuse_varname}" ;;
+		esac
+	done
+
+	# prev: v2: unset \
+	# prev: v2: 	l_unuse_types \
+	# prev: v2: 	l_unuse_varname \
+	# prev: v2: 	# end
+	unset \
+		l_unuse_types \
+		l_unuse_varname \
+		l_unuse_tuple \
+		# end
+}
 
 # Read configuration and set defaults if anything's not set
 [ -n "$VCSH_DEBUG" ]                  && set -vx
@@ -83,6 +161,9 @@ if [ -n "$VCSH_OPTION_CONFIG" ]; then
 	fi
 fi
 [ -n "$VCSH_DEBUG" ]                  && set -vx
+
+# deal with recursive calls: unset VCSH_REPO_NAME, GIT_DIR, VCSH_COMMAND, etc.
+unuse 'nested'
 
 # Read defaults
 : ${VCSH_REPO_D:="$XDG_CONFIG_HOME/vcsh/repo.d"}
@@ -197,7 +278,9 @@ clone() {
 }
 
 commit() {
+	unuse 'repo'
 	hook pre-commit
+
         shift  # remove the "commit" command.
 	for VCSH_REPO_NAME in $(list); do
 		echo "$VCSH_REPO_NAME: "
@@ -207,6 +290,8 @@ commit() {
 			|| VCSH_COMMAND_RETURN_CODE=$?
 		echo
 	done
+
+	unuse 'repo'
 	hook post-commit
 }
 
@@ -227,6 +312,7 @@ To continue, type 'Yes, do as I say'"
 		rm -f $file || info "could not delete '$file', continuing with deletion"
 	done
 	rm -rf "$GIT_DIR" || error "could not delete '$GIT_DIR'"
+	unuse 'repo'
 }
 
 enter() {
@@ -237,6 +323,7 @@ enter() {
 }
 
 foreach() {
+	unuse 'repo'
 	hook pre-foreach
 
 	# We default to prefixing `git` to all commands passed to foreach, but
@@ -250,6 +337,8 @@ foreach() {
 		fi
 		shift 1
 	done
+
+	export VCSH_REPO_NAME
 	for VCSH_REPO_NAME in $(list); do
 		echo "$VCSH_REPO_NAME:"
 		GIT_DIR=$VCSH_REPO_D/$VCSH_REPO_NAME.git; export GIT_DIR
@@ -257,6 +346,8 @@ foreach() {
 		$command_prefix "$@" \
 			|| VCSH_COMMAND_RETURN_CODE=$?
 	done
+	unuse 'repo'
+
 	hook post-foreach
 }
 
@@ -343,6 +434,8 @@ list_untracked() {
 			list_untracked_helper $VCSH_REPO_NAME
 		done
 	fi
+
+	unuse 'repo' # prev: unset VCSH_REPO_NAME
 	cat $temp_file_untracked
 
 	unset directory_opt directory_component
@@ -367,7 +460,9 @@ list_untracked_helper() {
 }
 
 pull() {
+	unuse 'repo'
 	hook pre-pull
+
 	for VCSH_REPO_NAME in $(list); do
 		printf '%s: ' "$VCSH_REPO_NAME"
 		GIT_DIR=$VCSH_REPO_D/$VCSH_REPO_NAME.git; export GIT_DIR
@@ -376,11 +471,15 @@ pull() {
 			|| VCSH_COMMAND_RETURN_CODE=$?
 		echo
 	done
+
+	unuse 'repo'
 	hook post-pull
 }
 
 push() {
+	unuse 'repo'
 	hook pre-push
+
 	for VCSH_REPO_NAME in $(list); do
 		printf '%s: ' "$VCSH_REPO_NAME"
 		GIT_DIR=$VCSH_REPO_D/$VCSH_REPO_NAME.git; export GIT_DIR
@@ -389,6 +488,8 @@ push() {
 			|| VCSH_COMMAND_RETURN_CODE=$?
 		echo
 	done
+
+	unuse 'repo'
 	hook post-push
 }
 
@@ -423,7 +524,9 @@ status() {
 	fi
 	if [ -n "$VCSH_REPO_NAME" ]; then
 		status_helper $VCSH_REPO_NAME
+		unuse 'dirs' # TODO: check if this is clearer than the one inside status_helper()
 	else
+		unuse 'repo'
 		for VCSH_REPO_NAME in $(list); do
 			STATUS=$(status_helper $VCSH_REPO_NAME "$COLORING") \
 				|| VCSH_COMMAND_RETURN_CODE=$?
@@ -431,6 +534,7 @@ status() {
 			[ -n "$STATUS" ]            && echo "$STATUS"
 			[ -z "$VCSH_STATUS_TERSE" ] && echo
 		done
+		unuse 'repo' # prev: unset VCSH_REPO_NAME
 	fi
 }
 
@@ -446,6 +550,7 @@ status_helper() {
 	}
 	git ${VCSH_GIT_OPTIONS} status --short --untracked-files='no' \
 		|| VCSH_COMMAND_RETURN_CODE=$?
+	unuse 'dirs' # TODO: check if this makes things clearer (an 'unuse' matching a 'use' command, above)
 }
 
 upgrade() {
