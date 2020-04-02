@@ -69,6 +69,8 @@ source_all() {
 [ -n "$VCSH_DEBUG" ]                  && set -vx
 : ${XDG_CONFIG_HOME:="$HOME/.config"}
 
+VCSH_COMMAND_RETURN_CODE=0
+
 # Read configuration files if there are any
 [ -r "/etc/vcsh/config" ]             && . "/etc/vcsh/config"
 [ -r "$XDG_CONFIG_HOME/vcsh/config" ] && . "$XDG_CONFIG_HOME/vcsh/config"
@@ -201,8 +203,8 @@ commit() {
 		echo "$VCSH_REPO_NAME: "
 		GIT_DIR=$VCSH_REPO_D/$VCSH_REPO_NAME.git; export GIT_DIR
 		use
-		git commit --untracked-files=no --quiet "$@"
-		VCSH_COMMAND_RETURN_CODE=$?
+		git commit --untracked-files=no --quiet "$@" \
+			|| VCSH_COMMAND_RETURN_CODE=$?
 		echo
 	done
 	hook post-commit
@@ -250,7 +252,8 @@ foreach() {
 		echo "$VCSH_REPO_NAME:"
 		GIT_DIR=$VCSH_REPO_D/$VCSH_REPO_NAME.git; export GIT_DIR
 		use
-		$command_prefix "$@"
+		$command_prefix "$@" \
+			|| VCSH_COMMAND_RETURN_CODE=$?
 	done
 	hook post-foreach
 }
@@ -365,8 +368,8 @@ pull() {
 		printf '%s: ' "$VCSH_REPO_NAME"
 		GIT_DIR=$VCSH_REPO_D/$VCSH_REPO_NAME.git; export GIT_DIR
 		use
-		git pull
-		VCSH_COMMAND_RETURN_CODE=$?
+		git pull \
+			|| VCSH_COMMAND_RETURN_CODE=$?
 		echo
 	done
 	hook post-pull
@@ -378,8 +381,8 @@ push() {
 		printf '%s: ' "$VCSH_REPO_NAME"
 		GIT_DIR=$VCSH_REPO_D/$VCSH_REPO_NAME.git; export GIT_DIR
 		use
-		git push
-		VCSH_COMMAND_RETURN_CODE=$?
+		git push \
+			|| VCSH_COMMAND_RETURN_CODE=$?
 		echo
 	done
 	hook post-push
@@ -405,8 +408,8 @@ rename() {
 run() {
 	hook pre-run
 	use
-	"$@"
-	VCSH_COMMAND_RETURN_CODE=$?
+	"$@" \
+		|| VCSH_COMMAND_RETURN_CODE=$?
 	hook post-run
 }
 
@@ -418,7 +421,8 @@ status() {
 		status_helper $VCSH_REPO_NAME
 	else
 		for VCSH_REPO_NAME in $(list); do
-			STATUS=$(status_helper $VCSH_REPO_NAME "$COLORING")
+			STATUS=$(status_helper $VCSH_REPO_NAME "$COLORING") \
+				|| VCSH_COMMAND_RETURN_CODE=$?
 			[ -n "$STATUS" -o -z "$VCSH_STATUS_TERSE" ] && echo "$VCSH_REPO_NAME:"
 			[ -n "$STATUS" ]            && echo "$STATUS"
 			[ -z "$VCSH_STATUS_TERSE" ] && echo
@@ -436,8 +440,8 @@ status_helper() {
 		[ ${commits_behind} -ne 0 ] && echo "Behind $remote_tracking_branch by $commits_behind commits"
 		[ ${commits_ahead} -ne 0 ] && echo "Ahead of $remote_tracking_branch by $commits_ahead commits"
 	}
-	git ${VCSH_GIT_OPTIONS} status --short --untracked-files='no'
-	VCSH_COMMAND_RETURN_CODE=$?
+	git ${VCSH_GIT_OPTIONS} status --short --untracked-files='no' \
+		|| VCSH_COMMAND_RETURN_CODE=$?
 }
 
 upgrade() {
