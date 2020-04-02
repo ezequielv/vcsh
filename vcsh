@@ -64,20 +64,6 @@ source_all() {
 	esac;
 }
 
-# prev: v1: unuse() {
-# prev: v1: 	while [ $# -gt 0 ] ; do
-# prev: v1: 		case "$1" in
-# prev: v1: 			'clear-nested' )
-# prev: v1: 				unset VCSH_COMMAND ;;
-# prev: v1:
-# prev: v1: 			* )
-# prev: v1: 				fatal "unuse(): unrecognized arg '$1'" ;;
-# prev: v1: 		esac
-# prev: v1: 		shift
-# prev: v1: 	done
-# prev: v1: 	unset VCSH_REPO_NAME VCSH_DIRECTORY GIT_DIR
-# prev: v1: }
-
 unuse() {
 	unset l_unuse_types
 
@@ -95,23 +81,6 @@ unuse() {
 		shift
 	done
 	[ -n "${l_unuse_types}" ] || fatal "unuse(): syntax: unuse [TYPES...]"
-
-	# prev: v2: for l_unuse_varname in \
-	# prev: v2: 	VCSH_REPO_NAME \
-	# prev: v2: 	VCSH_DIRECTORY \
-	# prev: v2: 	GIT_DIR \
-	# prev: v2: 	VCSH_COMMAND \
-	# prev: v2: 	# end
-	# prev: v2: do
-	# prev: v2: 	case "${l_unuse_varname}:${l_unuse_types}:" in
-	# prev: v2: 		VCSH_REPO_NAME:*:[ndr]:* | \
-	# prev: v2: 		VCSH_DIRECTORY:*:[ndr]:* | \
-	# prev: v2: 		GIT_DIR:*:[ndr]:* | \
-	# prev: v2: 		VCSH_COMMAND:*:[n]:* | \
-	# prev: v2: 		end-of-list )
-	# prev: v2: 			unset $v ;;
-	# prev: v2: 	esac
-	# prev: v2: done
 
 	# example:
 	#  $ ( dash -c 'pat="*:hello:*:[yYabc]:*" && echo "pattern: \"$pat$\"" && for t in ":hello:1:y:yes" ":hello:2:x:no" ; do case "$t" in $pat ) echo "\"$t\" matched" ;; * ) echo "\"$t\" did not match" ;; esac ; done' ) ; echo "rc: $?"
@@ -132,10 +101,6 @@ unuse() {
 		esac
 	done
 
-	# prev: v2: unset \
-	# prev: v2: 	l_unuse_types \
-	# prev: v2: 	l_unuse_varname \
-	# prev: v2: 	# end
 	unset \
 		l_unuse_types \
 		l_unuse_varname \
@@ -437,7 +402,7 @@ list_untracked() {
 		done
 	fi
 
-	unuse 'repo' # prev: unset VCSH_REPO_NAME
+	unuse 'repo'
 	cat $temp_file_untracked
 
 	unset directory_opt directory_component
@@ -537,7 +502,7 @@ status() {
 			[ -n "$STATUS" ]            && echo "$STATUS"
 			[ -z "$VCSH_STATUS_TERSE" ] && echo
 		done
-		unuse 'repo' # prev: unset VCSH_REPO_NAME
+		unuse 'repo'
 	fi
 }
 
@@ -580,7 +545,6 @@ upgrade() {
 
 use() {
 	git_dir_exists
-	# [ezequielv] not_needed?: export VCSH_REPO_NAME
 	VCSH_DIRECTORY=$VCSH_REPO_NAME; export VCSH_DIRECTORY
 }
 
