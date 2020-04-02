@@ -352,6 +352,8 @@ foreach() {
 }
 
 git_dir_exists() {
+	# FIXME: improve checks (use -n "$d" -a -d "${d}/")
+	# TODO: improve error messages
 	[ -d "$GIT_DIR" ] || fatal "no repository found for '$VCSH_REPO_NAME'" 12
 }
 
@@ -493,6 +495,7 @@ push() {
 	hook post-push
 }
 
+# TODO: see if this can be folded into 'unuse()'
 retire() {
 	unset VCSH_DIRECTORY
 }
@@ -577,6 +580,7 @@ upgrade() {
 
 use() {
 	git_dir_exists
+	# [ezequielv] not_needed?: export VCSH_REPO_NAME
 	VCSH_DIRECTORY=$VCSH_REPO_NAME; export VCSH_DIRECTORY
 }
 
@@ -776,6 +780,7 @@ check_dir "$VCSH_REPO_D"
 verbose "$VCSH_COMMAND begin"
 VCSH_COMMAND=$(echo "$VCSH_COMMAND" | sed 's/-/_/g'); export VCSH_COMMAND
 
+# FIXME: source the correct file (do *not* fix it to be under 'XDG_CONFIG_HOME')
 # Source repo-specific configuration file
 [ -r "$XDG_CONFIG_HOME/vcsh/config.d/$VCSH_REPO_NAME" ] && . "$XDG_CONFIG_HOME/vcsh/config.d/$VCSH_REPO_NAME"
 
